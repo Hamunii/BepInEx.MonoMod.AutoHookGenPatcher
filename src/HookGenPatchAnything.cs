@@ -1,11 +1,15 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
+using HookGenPatchAnything.Config;
 using Mono.Cecil;
 using MonoMod;
 using MonoMod.RuntimeDetour.HookGen;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 
 namespace HookGenPatchAnything
@@ -15,54 +19,113 @@ namespace HookGenPatchAnything
     internal static class Patcher {
         public static string mmhookPath;
         public static ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("HookGenPatchAnything");
-        public static void Finish() {
+        private static readonly PluginConfig BoundConfig = new PluginConfig(new ConfigFile(Path.Combine(Paths.ConfigPath, PluginInfo.PLUGIN_NAME + ".cfg"), false));
+
+        internal static List<string> toPatchFromGUID;
+        public static void Finish() {            
             mmhookPath = Path.Combine(Paths.PluginPath, "MMHOOK");
             if(!Directory.Exists(mmhookPath)){
                 Logger.LogError($"No MMHOOK directory found! Please install HookGenPatcher.");
                 mmhookPath = null;
             }
+            var watch = Stopwatch.StartNew();
+            DiscoverPlugins();
+            watch.Stop();
+            Logger.LogInfo($"Took {watch.ElapsedMilliseconds}ms");
+        }
+
+        private static void DiscoverPlugins(){
+            HookGenPatch.pluginSearch = new();
+            toPatchFromGUID = new();
+            var mmhookFolder = Path.Combine(Path.Combine(Paths.PluginPath, "MMHOOK"), "Any");
+            bool shouldPatchAll = BoundConfig.PatchAllPlugins.Value;
+
+            foreach (string assemblyPath in Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories))
+            {
+                if (!Path.GetFileName(assemblyPath).StartsWith("MMHOOK_")){
+
+                    // Logger.LogInfo($"File: {assemblyPath}");
+                    var fileInfo = new FileInfo(assemblyPath);
+  
+                    try
+                    {
+                        using (var pluginAssembly = AssemblyDefinition.ReadAssembly(assemblyPath))
+                        {
+                            var pluginAttributes = pluginAssembly.MainModule.GetCustomAttributes();
+                            
+                            // We look for a class named 'MMHOOK_ALL_PLUGINS' to determine whether or not we should HookGen every plugin, for dev purposes.
+                            // var hookGenPatchAllCommand = pluginAssembly.MainModule.Types.FirstOrDefault(type => type.Name.Equals("MMHOOK_ALL_PLUGINS"));
+                            // if(hookGenPatchAllCommand != null)
+                            //     shouldPatchAll = true;
+                            
+                            var bepInPluginAttr = pluginAttributes.FirstOrDefault(x => x.AttributeType.Name.Equals("BepInPlugin"));
+                            CustomAttributeArgument plugin_GUID;
+                            if(bepInPluginAttr != null)
+                                plugin_GUID = bepInPluginAttr.ConstructorArguments.FirstOrDefault();
+                            if(bepInPluginAttr == null || plugin_GUID.Value == null || plugin_GUID.Value.ToString() == "") {
+                                // We use the filename as the GUID, because it doesn't have one.
+                                var fileName = Path.GetFileName(assemblyPath);
+                                // Trim out '.dll'
+                                var guid = fileName.Substring(0, fileName.Length - 4);
+                                HookGenPatch.pluginSearch.Add(guid, assemblyPath);
+                                continue;
+                            }
+                            HookGenPatch.pluginSearch.Add(plugin_GUID.Value.ToString(), assemblyPath);
+
+                            //if(hookGenPatchAttr == null) {
+                            //    continue;
+                            //};
+
+                            // Logger.LogInfo($"Found custom attribute {hookGenPatchAttr.AttributeType.Name} in {Path.GetFileName(assemblyPath)}.");
+                            var mmhookReferences = pluginAssembly.MainModule.AssemblyReferences.Where(x => x.Name.StartsWith("MMHOOK_")
+                                && !x.Name.Equals("MMHOOK_AmazingAssets.TerrainToMesh") // Exclude ones already included in HookGenPatcher
+                                && !x.Name.Equals("MMHOOK_Assembly-CSharp")
+                                && !x.Name.Equals("MMHOOK_ClientNetworkTransform")
+                                && !x.Name.Equals("MMHOOK_DissonanceVoip")
+                                && !x.Name.Equals("MMHOOK_Facepunch.Steamworks.Win64")
+                                && !x.Name.Equals("MMHOOK_Facepunch Transport for Netcode for GameObjects"));
+                            
+                            foreach(var reference in mmhookReferences){
+                                Logger.LogInfo($"Found reference to {reference.Name} in {Path.GetFileName(assemblyPath)}.");
+                                // Trim out 'MMHOOK_' to get the GUID (the rest of the name, excluding '.dll')
+                                var guid = reference.Name.Substring(7, reference.Name.Length - 7);
+                                toPatchFromGUID.Add(guid);
+                            }
+                        }
+                    }
+                    catch (BadImageFormatException)
+                    {
+                        Logger.LogWarning($"Failed to read {Path.GetFileName(assemblyPath)}, Bad Image Format.");
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogWarning($"Failed to read {Path.GetFileName(assemblyPath)}, Generic Exception {e}");
+                    }
+                }
+            }
+            if(!shouldPatchAll){
+                foreach(var plugin_GUID in toPatchFromGUID.Distinct().ToList()){
+                    HookGenPatch.RunHookGen(HookGenPatch.pluginSearch[plugin_GUID], plugin_GUID, isPlugin: true);
+                }
+            }
+            else{
+                foreach(var entry in HookGenPatch.pluginSearch){
+                    HookGenPatch.RunHookGen(entry.Value, entry.Key, isPlugin: true);
+                }
+                Logger.LogWarning("Patched everything!");
+            }
         }
 
         // Load us https://docs.bepinex.dev/articles/dev_guide/preloader_patchers.html
         public static IEnumerable<string> TargetDLLs { get; } = new string[] { };
-        public static void Patch(AssemblyDefinition _){ }
+        public static void Patch(AssemblyDefinition _) { }
     }
 
     public static class HookGenPatch {
         private static bool skipHashing => true;
-        public static bool TargetPlugin(string plugin_GUID) {
-            var callingAssembly = System.Reflection.Assembly.GetCallingAssembly();
-            if(Patcher.mmhookPath == null){
-                Patcher.Logger.LogError($"{callingAssembly.FullName} wants to target Plugin with GUID: '{plugin_GUID}', but no MMHOOK directory found! Please install HookGenPatcher.");
-                return false;
-            }
-
-            if(!BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(plugin_GUID)){
-                Patcher.Logger.LogWarning($"Plugin with GUID: '{plugin_GUID}' wasn't found!");
-                return false;
-            }
-            var plugin = BepInEx.Bootstrap.Chainloader.PluginInfos[plugin_GUID];
-
-            return RunHookGen(plugin.Location, plugin_GUID, isPlugin: true);
-        }
-
-        public static bool TargetGameAssembly(string assemblyName){
-            var callingAssembly = System.Reflection.Assembly.GetCallingAssembly();
-            if(Patcher.mmhookPath == null){
-                Patcher.Logger.LogError($"{callingAssembly.FullName} wants to target '{assemblyName}', but no MMHOOK directory found! Please install HookGenPatcher.");
-                return false;
-            }
-            var assemblyPath = Path.Combine(Paths.ManagedPath, assemblyName);
-
-            if (!File.Exists(assemblyPath))
-            {
-                Patcher.Logger.LogWarning($"Assembly '{assemblyPath}' wasn't found!");
-            }
-
-            return RunHookGen(assemblyPath, assemblyName, isPlugin: false);
-        }
-
-        private static bool RunHookGen(string location, string assemblyName, bool isPlugin) {
+        internal static Dictionary<string, string> pluginSearch;
+    
+        internal static bool RunHookGen(string location, string assemblyName, bool isPlugin) {
 
             var mmhookFolder = Path.Combine(Path.Combine(Paths.PluginPath, "MMHOOK"), "Any");
             string fileExtension;
