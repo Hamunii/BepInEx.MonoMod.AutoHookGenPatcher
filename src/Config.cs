@@ -1,16 +1,13 @@
-﻿using System.Collections.Generic;
-using System.Reflection;
-using BepInEx;
-using BepInEx.Configuration;
+﻿using BepInEx.Configuration;
 
-namespace HookGenPatchAnything.Config {
+namespace AutoHookGenPatcher.Config {
     public class PluginConfig
     {
         public ConfigEntry<bool> PatchAllPlugins;
         public PluginConfig(ConfigFile cfg)
         {
             PatchAllPlugins = cfg.Bind("HookGenPatch All Plugins", "Enabled", false,
-                "If this option is enabled, HookGenAutoPatcher will generate MMHOOK files\n" +
+                "If this option is enabled, AutoHookGenPatcher will generate MMHOOK files\n" +
                 "for all plugins, whether or not they were referenced by other plugins.");
             
             // ClearUnusedEntries(cfg);
