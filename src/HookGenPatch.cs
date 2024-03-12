@@ -3,6 +3,7 @@ using Mono.Cecil;
 using MonoMod;
 using MonoMod.RuntimeDetour.HookGen;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 
@@ -10,7 +11,8 @@ namespace AutoHookGenPatcher
 {
     public static class HookGenPatch {
         private static bool skipHashing => true;
-        internal static bool RunHookGen(CachedAssemblyInfo plugin) {
+        private static readonly object hookGenLock = new object();
+        internal static bool RunHookGen(CachedAssemblyInfo plugin, List<string> mmhookPaths) {
             var assemblyName = plugin.GUID;
             var location = plugin.Path;
             var mmhookFolder = Path.Combine(Path.Combine(Paths.PluginPath, "MMHOOK"), "Any");
@@ -20,7 +22,7 @@ namespace AutoHookGenPatcher
             string pathOut = Path.Combine(mmhookFolder, mmhookFileName);
             bool shouldCreateDirectory = true;
 
-            foreach (string mmhookFile in Directory.GetFiles(Paths.PluginPath, mmhookFileName, SearchOption.AllDirectories))
+            foreach (string mmhookFile in mmhookPaths)
             {
                 if (Path.GetFileName(mmhookFile).Equals(mmhookFileName))
                 {
@@ -72,39 +74,59 @@ namespace AutoHookGenPatcher
             Environment.SetEnvironmentVariable("MONOMOD_HOOKGEN_PRIVATE", "1");
             Environment.SetEnvironmentVariable("MONOMOD_DEPENDENCY_MISSING_THROW", "0");
 
-            using (MonoModder mm = new MonoModder()
             {
-                InputPath = pathIn,
-                OutputPath = pathOut,
-                ReadingMode = ReadingMode.Deferred
-            })
-            {
-                (mm.AssemblyResolver as BaseAssemblyResolver)?.AddSearchDirectory(Paths.BepInExAssemblyDirectory);
+                // Doing this instead of using(){} because MonoModder creation needs to be locked, but 
+                // we want to do the rest asynchronously, which I don't know how else I would do it.
+                // This is basically what using(){} does, at least according to https://stackoverflow.com/a/75483
+                MonoModder mm = null!;
+                try{
+                    lock(hookGenLock){
+                        mm = new MonoModder(){
+                            InputPath = pathIn,
+                            OutputPath = pathOut,
+                            ReadingMode = ReadingMode.Deferred
+                        };
 
-                mm.Read();
+                        (mm.AssemblyResolver as BaseAssemblyResolver)?.AddSearchDirectory(Paths.BepInExAssemblyDirectory);
 
-                mm.MapDependencies();
+                        mm.Read();
 
-                if (File.Exists(pathOut))
-                {
-                    Patcher.Logger.LogDebug($"Clearing {pathOut}");
-                    File.Delete(pathOut);
-                }
-                Patcher.Logger.LogInfo($"Starting HookGenerator for '{mmhookFileName}'");
-                HookGenerator gen = new HookGenerator(mm, Path.GetFileName(pathOut));
-
-                using (ModuleDefinition mOut = gen.OutputModule)
-                {
-                    gen.Generate();
-                    mOut.Types.Add(new TypeDefinition("BepHookGen", "size" + size, TypeAttributes.Class | TypeAttributes.Public, mOut.TypeSystem.Object));
-                    if (!skipHashing)
-                    {
-                        mOut.Types.Add(new TypeDefinition("BepHookGen", "content" + (hash == 0 ? fileInfo.makeHash() : hash), TypeAttributes.Class | TypeAttributes.Public, mOut.TypeSystem.Object));
+                        mm.MapDependencies();
+                        
+                        if (File.Exists(pathOut))
+                        {
+                            Patcher.Logger.LogDebug($"Clearing {pathOut}");
+                            File.Delete(pathOut);
+                        }
                     }
-                    mOut.Write(pathOut);
-                }
 
-                Patcher.Logger.LogInfo("Done.");
+                    HookGenerator gen;
+                    Patcher.Logger.LogInfo($"Starting HookGenerator for '{mmhookFileName}'");
+                    lock(hookGenLock){
+                        gen = new HookGenerator(mm, Path.GetFileName(pathOut));
+                    }
+
+                    using (ModuleDefinition mOut = gen.OutputModule)
+                    {
+                        gen.Generate();
+                        mOut.Types.Add(new TypeDefinition("BepHookGen", "size" + size, TypeAttributes.Class | TypeAttributes.Public, mOut.TypeSystem.Object));
+                        if (!skipHashing)
+                        {
+                            mOut.Types.Add(new TypeDefinition("BepHookGen", "content" + (hash == 0 ? fileInfo.makeHash() : hash), TypeAttributes.Class | TypeAttributes.Public, mOut.TypeSystem.Object));
+                        }
+                        lock(hookGenLock){
+                            mOut.Write(pathOut);
+                        }
+                    }
+
+                    Patcher.Logger.LogInfo($"HookGen done for '{mmhookFileName}'");
+                }
+                catch (Exception e){
+                    Patcher.Logger.LogInfo($"Error in HookGen for '{mmhookFileName}': {e}");
+                }
+                finally{
+                    mm?.Dispose();
+                }
             }
 
             return true;

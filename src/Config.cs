@@ -3,12 +3,19 @@
 namespace AutoHookGenPatcher.Config {
     public class PluginConfig
     {
-        public ConfigEntry<bool> PatchAllPlugins;
+        public ConfigEntry<bool> GenerateForAllPlugins;
+        public ConfigEntry<bool> DisableGenerateForAllPlugins;
         public PluginConfig(ConfigFile cfg)
         {
-            PatchAllPlugins = cfg.Bind("HookGenPatch All Plugins", "Enabled", false,
-                "If this option is enabled, AutoHookGenPatcher will generate MMHOOK files\n" +
-                "for all plugins, whether or not they were referenced by other plugins.");
+            GenerateForAllPlugins = cfg.Bind("Generate MMHOOK File for All Plugins",
+                "Enabled", false,
+                "If enabled, AutoHookGenPatcher will generate MMHOOK files for all plugins\n" +
+                "even if their MMHOOK files were not referenced by other plugins.\n" +
+                "Use this for getting the MMHOOK files you need for your plugin.");
+            
+            DisableGenerateForAllPlugins = cfg.Bind("Generate MMHOOK File for All Plugins",
+                "Disable After Generating", true,
+                "Automatically disable the above setting after the MMHOOK files have been generated.");
             
             // ClearUnusedEntries(cfg);
         }

@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using System.Threading.Tasks;
 
 namespace AutoHookGenPatcher
 {
@@ -18,9 +19,7 @@ namespace AutoHookGenPatcher
         public static string? mmhookPath;
         public static ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource(PluginInfo.PLUGIN_NAME);
         private static readonly PluginConfig BoundConfig = new PluginConfig(new ConfigFile(Path.Combine(Paths.ConfigPath, PluginInfo.PLUGIN_NAME + ".cfg"), false));
-        internal static List<string> toPatchFromGUID = new();
-        // internal static List<CachedAssemblyInfo> currentAssemblies = new();
-        // internal static List<CachedAssemblyInfo> cachedAssemblies = new();
+        internal static List<Task> hookGenTasks = new();
         internal static string? cacheLocation;
         internal static bool isCacheUpdateNeeded = false;
         public static void Finish() {
@@ -51,21 +50,38 @@ namespace AutoHookGenPatcher
                 }
             }
 
+            var mmHookPaths = Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories).Where(name => Path.GetFileName(name).StartsWith("MMHOOK_")).ToList();
+
             for(int idx = 0; idx < currentPlugins.Count; idx++)
             {
                 var plugin = currentPlugins[idx];
                 if(plugin.AlreadyHasMMHOOK) continue;
 
-                if(!BoundConfig.PatchAllPlugins.Value && !currentPlugins.SelectMany(plugins => plugins.References).Contains(plugin.GUID)) continue;
-
-                if(HookGenPatch.RunHookGen(plugin)){
-                    plugin.AlreadyHasMMHOOK = true;
-                    isCacheUpdateNeeded = true;
+                if(BoundConfig.GenerateForAllPlugins.Value || currentPlugins.SelectMany(plugins => plugins.References).Contains(plugin.GUID))
+                {
+                    var hookGenTask = new Task(() => StartHookGen(plugin, mmHookPaths));
+                    hookGenTask.Start();
+                    hookGenTasks.Add(hookGenTask);
                 }
             }
 
+            if(BoundConfig.GenerateForAllPlugins.Value)
+                if(BoundConfig.DisableGenerateForAllPlugins.Value)
+                    BoundConfig.GenerateForAllPlugins.Value = false;
+            
+            hookGenTasks.ForEach(x => x.Wait());
+            
             if(isCacheUpdateNeeded || cachedPlugins == null)
                 WriteCache(currentPlugins);
+        }
+
+        private static void StartHookGen(CachedAssemblyInfo plugin, List<string> mmhookPaths){
+            if(HookGenPatch.RunHookGen(plugin, mmhookPaths)){
+                lock(plugin){
+                    plugin.AlreadyHasMMHOOK = true;
+                }
+                isCacheUpdateNeeded = true;
+            }
         }
 
         private static IEnumerable<CachedAssemblyInfo> GetPlugins(List<CachedAssemblyInfo>? cachedAssemblies){
@@ -125,7 +141,6 @@ namespace AutoHookGenPatcher
                     var referencedPlugin_GUID = referencePlugin.Name.Substring(7, referencePlugin.Name.Length - 7);
 
                     cachedAssemblyInfo.References.Add(referencedPlugin_GUID);
-                    toPatchFromGUID.Add(referencedPlugin_GUID);
                 }
             }
         }
