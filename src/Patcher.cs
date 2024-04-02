@@ -77,11 +77,16 @@ internal static class Patcher {
         }
 
         int alreadyHadMMHOOKCount = 0;
+        int totalValidPluginsCount = currentPlugins.Count;
 
         for(int i = 0; i < currentPlugins.Count; i++)
         {
             var plugin = currentPlugins[i];
-            if(plugin.IsDuplicate) continue;
+            if(plugin.IsDuplicate){
+                ExtendedLogging($"[{nameof(Begin)}] Skipping HookGen Check For Duplicate or Old Version of {plugin.GUID} ({plugin.PluginVersion})");
+                totalValidPluginsCount--;
+                continue;
+            }
 
             if(plugin.AlreadyHasMMHOOK){
                 alreadyHadMMHOOKCount++;
@@ -103,7 +108,7 @@ internal static class Patcher {
             BoundConfig.GenerateForAllPlugins.Value = false;
         }
         
-        ExtendedLogging($"[{nameof(Begin)}] Already Has MMHOOK: {alreadyHadMMHOOKCount} Out of {currentPlugins.Count} Assemblies");
+        ExtendedLogging($"[{nameof(Begin)}] Already Has MMHOOK: {alreadyHadMMHOOKCount} Out of {totalValidPluginsCount} Assemblies");
         ExtendedLogging($"[{nameof(Begin)}] Waiting for {hookGenTasks.Count} HookGen Task{(hookGenTasks.Count == 1 ? "" : "s")} to finish.");
 
         hookGenTasks.ForEach(x => x.Wait());
@@ -175,7 +180,7 @@ internal static class Patcher {
         cachedAssemblyInfo.GUID = GetPluginGUID(cachedAssemblyInfo, pluginAssembly);
         if (cachedAssemblyInfo.IsDuplicate)
         {
-            ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Skipping This Version of {cachedAssemblyInfo.GUID}");
+            ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Skipping Reading This Version of {cachedAssemblyInfo.GUID}");
             return;
         }
         ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Starting Reading: " + cachedAssemblyInfo.GUID);
@@ -226,9 +231,9 @@ internal static class Patcher {
             // We want to HookGen the newer version which BepInEx loads
             if (GUIDtoVer[plugin_GUID].CompareTo(plugin_Ver) < 0)
             {
-                ExtendedLogging($"[{nameof(MarkIfDuplicate)}] This Version of {plugin_GUID} is Newer {plugin_Ver} => {GUIDtoVer[plugin_GUID]}");
+                ExtendedLogging($"[{nameof(MarkIfDuplicate)}] Found Newer Version of {plugin_GUID} {GUIDtoVer[plugin_GUID]} => {plugin_Ver} (this)");
                 GUIDtoVer.Remove(plugin_GUID);
-                currentPlugins.Find(cachedAssemblyInfo => cachedAssemblyInfo.GUID.Equals(plugin_GUID)).IsDuplicate = true;
+                currentPlugins.Find(plugin => plugin.GUID.Equals(plugin_GUID) && plugin != cachedAssemblyInfo).IsDuplicate = true;
                 GUIDtoVer.Add(plugin_GUID, plugin_Ver);
                 return false;
             }

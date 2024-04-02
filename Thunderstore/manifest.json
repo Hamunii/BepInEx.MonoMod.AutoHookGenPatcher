@@ -1,10 +1,10 @@
 {
     "name": "AutoHookGenPatcher",
-    "version_number": "1.2.10",
-    "website_url": "https://github.com/Hamunii/BepInEx.MonoMod.HookGenPatchAnything",
+    "version_number": "1.0.0",
+    "website_url": "https://github.com/Hamunii/BepInEx.MonoMod.AutoHookGenPatcher",
     "description": "MonoMod's HookGen as a Fully Automatic BepInEx Patcher.",
     "dependencies": [
       "BepInEx-BepInExPack-5.4.2100",
-      "Evaisa-HookGenPatcher-0.0.5"
+      "Hamunii-DetourContext_Dispose_Fix-1.0.1"
     ]
 }

@@ -3,8 +3,7 @@
 Automatically generates [MonoMod.RuntimeDetour.HookGen's](https://github.com/MonoMod/MonoMod) `MMHOOK` files during the [BepInEx](https://github.com/BepInEx/BepInEx) preloader phase.
 
 Manual Installation:
-Put in `BepInEx\patchers` folder.
-Make sure the `MonoMod.dll` and `MonoMod.RuntimeDetour.HookGen.dll` files are also present.
+Move the `BepInEx` folder from the ZIP file to the `BepInEx` folder of the game.
 
 **This project is not officially linked with BepInEx nor with MonoMod.**
 
@@ -18,7 +17,7 @@ This software is based off of [HookGenPatcher](https://github.com/harbingerofme/
 
 ## Usage For Developers
 
-Using AutoHookGenPatcher is really simple, and the only thing you need to do is tell it to generate the MMHOOK files you want in the first place. This can be by editing the config file `AutoHookGenPatcher.cfg`, and setting `Enabled` to `true`:
+Using AutoHookGenPatcher is really simple, and the only thing you need to do is tell it to generate the MMHOOK files you want in the first place. This can be by editing the config file `AutoHookGenPatcher.cfg`, and setting the `[Generate MMHOOK File for All Plugins]` settings' `Enabled` value to `true`:
 
 ```toml
 [Generate MMHOOK File for All Plugins]

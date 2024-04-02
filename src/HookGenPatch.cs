@@ -3,7 +3,6 @@ using Mono.Cecil;
 using MonoMod;
 using MonoMod.RuntimeDetour.HookGen;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 
