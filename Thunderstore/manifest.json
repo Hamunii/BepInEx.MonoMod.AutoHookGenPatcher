@@ -2,7 +2,7 @@
     "name": "AutoHookGenPatcher",
     "version_number": "1.2.10",
     "website_url": "https://github.com/Hamunii/BepInEx.MonoMod.HookGenPatchAnything",
-    "description": "An API for generating MMHOOK files at runtime.",
+    "description": "MonoMod's HookGen as a Fully Automatic BepInEx Patcher.",
     "dependencies": [
       "BepInEx-BepInExPack-5.4.2100",
       "Evaisa-HookGenPatcher-0.0.5"

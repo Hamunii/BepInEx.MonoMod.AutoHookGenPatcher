@@ -15,7 +15,7 @@ namespace AutoHookGenPatcher
         internal static bool RunHookGen(CachedAssemblyInfo plugin, List<string> mmhookPaths) {
             var assemblyName = plugin.GUID;
             var location = plugin.Path;
-            var mmhookFolder = Path.Combine(Path.Combine(Paths.PluginPath, "MMHOOK"), "Any");
+            var mmhookFolder = Patcher.mmhookPath;
             var fileExtension = ".dll";
             var mmhookFileName = "MMHOOK_" + assemblyName + fileExtension;
             string pathIn = location;

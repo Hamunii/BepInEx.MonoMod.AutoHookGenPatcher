@@ -5,6 +5,7 @@ namespace AutoHookGenPatcher.Config {
     {
         public ConfigEntry<bool> GenerateForAllPlugins;
         public ConfigEntry<bool> DisableGenerateForAllPlugins;
+        public ConfigEntry<bool> ExtendedLogging;
         public PluginConfig(ConfigFile cfg)
         {
             GenerateForAllPlugins = cfg.Bind("Generate MMHOOK File for All Plugins",
@@ -17,6 +18,9 @@ namespace AutoHookGenPatcher.Config {
                 "Disable After Generating", true,
                 "Automatically disable the above setting after the MMHOOK files have been generated.");
             
+            ExtendedLogging = cfg.Bind("Extended Logging",
+                "Enabled", false,
+                "If enabled, AutoHookGenPatcher will print more information about what it is doing.");
             // ClearUnusedEntries(cfg);
         }
 
