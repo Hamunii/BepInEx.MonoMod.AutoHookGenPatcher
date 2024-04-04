@@ -62,14 +62,15 @@ public static class HookGenPatch {
                     {
                         if (skipHashing)
                         {
-                            Patcher.ExtendedLogging($"[{nameof(RunHookGen)}] Already ran for latest version of {mmhookFileName}");
+                            Patcher.ExtendedLogging($"[{nameof(RunHookGen)}] (skip hashing) Already ran for latest version of {mmhookFileName}");
                             return true;
                         }
-                        hash = fileInfo.makeHash();
+                        hash = fileInfo.MakeHash();
                         bool mmContentHash = oldMM.MainModule.GetType("BepHookGen.content" + hash) != null;
                         if (mmContentHash)
                         {
                             Patcher.ExtendedLogging($"[{nameof(RunHookGen)}] Already ran for latest version of {mmhookFileName}");
+                            plugin.MMHOOKDate = File.GetLastWriteTime(pathOut).Ticks;
                             return true;
                         }
                     }
@@ -122,7 +123,7 @@ public static class HookGenPatch {
                     mOut.Types.Add(new TypeDefinition("BepHookGen", "size" + size, TypeAttributes.Class | TypeAttributes.Public, mOut.TypeSystem.Object));
                     if (!skipHashing)
                     {
-                        mOut.Types.Add(new TypeDefinition("BepHookGen", "content" + (hash == 0 ? fileInfo.makeHash() : hash), TypeAttributes.Class | TypeAttributes.Public, mOut.TypeSystem.Object));
+                        mOut.Types.Add(new TypeDefinition("BepHookGen", "content" + (hash == 0 ? fileInfo.MakeHash() : hash), TypeAttributes.Class | TypeAttributes.Public, mOut.TypeSystem.Object));
                     }
                     lock(hookGenLock){
                         mOut.Write(pathOut);
@@ -130,6 +131,7 @@ public static class HookGenPatch {
                 }
 
                 Patcher.Logger.LogInfo($"[{nameof(RunHookGen)}] HookGen done for {mmhookFileName}");
+                plugin.MMHOOKDate = File.GetLastWriteTime(pathOut).Ticks;
             }
             catch (Exception e){
                 Patcher.Logger.LogInfo($"[{nameof(RunHookGen)}] Error in HookGen for {mmhookFileName}: {e}");
@@ -142,7 +144,7 @@ public static class HookGenPatch {
         return true;
     }
 
-    private static long makeHash(this FileInfo fileInfo)
+    private static long MakeHash(this FileInfo fileInfo)
     {
         var fileStream = fileInfo.OpenRead();
         byte[] hashbuffer = null!;

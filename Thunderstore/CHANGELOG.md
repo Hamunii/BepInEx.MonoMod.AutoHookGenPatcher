@@ -1,0 +1,28 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.1] - 2024-4-4
+
+### Changed
+- Thunderstore CLI is now used for building the Thunderstore package
+- Improved README to explain better what AutoHookGenPatcher does
+
+### Fixed
+- Fixed a bug which prevented AutoHookGenPatcher from generating new version of MMHOOK assembly if that MMHOOK assembly existed already
+- Minor typos in README
+
+### Other
+- Uploaded to Thunderstore's Plasma Mod Database
+
+## [1.0.0] - 2024-4-2
+
+### Changed
+**Initial release — Differences to the original HookGenPatcher**
+
+- Instead of only having a fixed list of files to generate MMHOOK files for, AutoHookGenPatcher will get the MMHOOK file references from installed plugins, and generates those MMHOOK files if possible.
+- AutoHookGenPatcher makes use of a cache file to quickly check if everything is still up to date, without needing to check every MMHOOK file for that information.
+- Hook Generation is now multithreaded, meaning that generating multiple MMHOOK files takes less time. For example, generating an MMHOOK file for every file in the `Managed` directory of Lethal Company takes about **22.5 seconds** instead of **40.0 seconds** it would take with no multithreading, on my machine.

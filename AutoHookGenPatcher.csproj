@@ -16,6 +16,7 @@
     <Deterministic>true</Deterministic>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
+    <Version>1.0.1</Version>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -38,21 +39,27 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
 
-  <!-- Hides full path from debug symbols -->
   <PropertyGroup>
+    <!-- Hides full path from debug symbols -->
     <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=./</PathMap>
+    <!-- tcli stuff -->
+    <ThunderstoreTeam>Hamunii</ThunderstoreTeam>
   </PropertyGroup>
 
 
   <ItemGroup>
     <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
-    <PackageReference Include="UnityEngine.Modules" Version="2022.3.9" IncludeAssets="compile" />
     <PackageReference Include="MonoMod.RuntimeDetour.HookGen" Version="22.*" />
-    
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
+
+  <!-- Build our Thunderstore package when making a release build. This does not publish our package. -->
+  <!-- For more information about tcli, see https://github.com/thunderstore-io/thunderstore-cli/wiki -->
+  <Target Name="PackThunderstore" AfterTargets="PostBuildEvent" Condition="$(Configuration) == 'Release'">
+    <Exec Command="dotnet tcli build --config-path &quot;$(ProjectDir)Thunderstore/thunderstore.toml&quot; --package-version $(Version) --package-name $(AssemblyName) --package-namespace $(ThunderstoreTeam)"  />
+  </Target>
 </Project>

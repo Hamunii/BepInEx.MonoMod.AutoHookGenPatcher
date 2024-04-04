@@ -1,0 +1,40 @@
+[config]
+schemaVersion = "0.0.1"
+
+[general]
+repository = "https://thunderstore.io"
+
+[package]
+description = "MonoMod's HookGen as a Fully Automatic BepInEx Patcher."
+websiteUrl = "https://github.com/Hamunii/BepInEx.MonoMod.AutoHookGenPatcher"
+containsNsfwContent = false
+[package.dependencies]
+BepInEx-BepInExPack = "5.4.2100"
+Hamunii-DetourContext_Dispose_Fix = "1.0.2"
+
+[build]
+icon = "./icon.png"
+readme = "./README.md"
+outdir = "./Packages"
+
+[[build.copy]]
+source = "./CHANGELOG.md"
+target = "/"
+
+[[build.copy]]
+source = "../bin/Release/netstandard2.1/BepInEx.MonoMod.AutoHookGenPatcher.dll"
+target = "/BepInEx/patchers/"
+
+[[build.copy]]
+source = "./libs/MonoMod.dll"
+target = "/BepInEx/core/"
+
+[[build.copy]]
+source = "./libs/MonoMod.RuntimeDetour.HookGen.dll"
+target = "/BepInEx/core/"
+
+[publish]
+communities = [ "lethal-company", ]
+[publish.categories]
+# Get the list of categories from https://thunderstore.io/api/experimental/community/lethal-company/category/
+lethal-company = [ "bepinex", "libraries", ]

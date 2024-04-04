@@ -26,6 +26,7 @@ internal static class Patcher {
     internal static Dictionary<string, Version> GUIDtoVer = new();
     internal static string? cacheLocation;
     internal static bool isCacheUpdateNeeded = false;
+    internal const int cacheVersionID = 1;
     public static void Initialize()
     {
         if(BoundConfig.ExtendedLogging.Value)
@@ -153,7 +154,7 @@ internal static class Patcher {
             {
                 var hasMMHOOKinReality = mmhookFileNames.Contains($"MMHOOK_{cachedAssembly.GUID}.dll");
                 // ExtendedLogging($"[{nameof(GetPlugins)}] Found Known Assembly: " + Path.GetFileName(assemblyPath));
-                yield return new CachedAssemblyInfo(cachedAssembly.GUID, assemblyPath, cachedAssembly.DateModified, cachedAssembly.References, cachedAssembly.PluginVersion.ToString(), hasMMHOOKinReality);
+                yield return new CachedAssemblyInfo(cachedAssembly.GUID, assemblyPath, cachedAssembly.DateModified, cachedAssembly.MMHOOKDate, cachedAssembly.References, cachedAssembly.PluginVersion.ToString(), hasMMHOOKinReality);
             }
         }
     }
@@ -165,11 +166,27 @@ internal static class Patcher {
         if(currentDateModified == cachedAssemblyInfo.DateModified)
         {
             // ExtendedLogging($"[{nameof(IsPluginInfoUpToDate)}] Assembly is up-to-date: " + Path.GetFileName(cachedAssemblyInfo.Path));
+            if(!cachedAssemblyInfo.AlreadyHasMMHOOK)
+                return true;
+            
+            var thisMMHOOKPath = mmHookFiles.FirstOrDefault(filePath => Path.GetFileNameWithoutExtension(filePath).EndsWith(cachedAssemblyInfo.GUID));
+            if (thisMMHOOKPath is null){
+                Logger.LogError($"[{nameof(IsPluginInfoUpToDate)}] Plugin's MMHOOK was found yet it couldn't be found, this shouldn't be possible.");
+                cachedAssemblyInfo.AlreadyHasMMHOOK = false;
+                return false;
+            }
+
+            var currentMMHOOKDate = File.GetLastWriteTime(thisMMHOOKPath).Ticks;
+            if(cachedAssemblyInfo.MMHOOKDate != currentMMHOOKDate){
+                ExtendedLogging($"[{nameof(IsPluginInfoUpToDate)}] Plugin's info is up-to-date, yet MMHOOK is outdated. This should only happen if source assembly updated and game was launched, but AutoHookGenPatcher failed to update the MMHOOK assembly.");
+                cachedAssemblyInfo.AlreadyHasMMHOOK = false;
+            }
             return true;
         }
 
         // ExtendedLogging($"[{nameof(IsPluginInfoUpToDate)}] Cached Assembly Info is Not up-to-date! " + Path.GetFileName(cachedAssemblyInfo.Path));
         cachedAssemblyInfo.DateModified = currentDateModified;
+        cachedAssemblyInfo.AlreadyHasMMHOOK = false;
         return false;
     }
 
@@ -258,12 +275,19 @@ internal static class Patcher {
 
         try{
             doc = XDocument.Load(cacheLocation);
+            var version = doc.Root.Attribute("Ver");
+            if ((version is null) || int.Parse(version.Value) != cacheVersionID){
+                ExtendedLogging("Cache version doesn't match, forcing a refresh.");
+                return null;
+            }
+
             foreach(var el in doc.Root.Elements())
             {
                 fromCache.Add(new CachedAssemblyInfo(
                     el.Attribute("guid").Value,
                     el.Attribute("path").Value,
                     long.Parse(el.Attribute("dateModified").Value),
+                    long.Parse(el.Attribute("MMHOOKDate").Value),
                     el.Attribute("references").Value.Split(new char[] {'/'}, StringSplitOptions.RemoveEmptyEntries).ToList(),
                     el.Attribute("pluginVersion").Value
                     ));
@@ -284,11 +308,12 @@ internal static class Patcher {
         try{
             ExtendedLogging($"[{nameof(WriteCache)}] Updating cache.");
             
-            XElement xmlElements = new XElement("cache", cachedAssemblyInfos.Select(
+            XElement xmlElements = new XElement("cache", new XAttribute("Ver", 1), cachedAssemblyInfos.Select(
                 assembly => new XElement("assembly",
                 new XAttribute("guid", assembly.GUID),
                 new XAttribute("path", assembly.Path),
                 new XAttribute("dateModified", assembly.DateModified),
+                new XAttribute("MMHOOKDate", assembly.MMHOOKDate),
                 new XAttribute("references", string.Join( '/', assembly.References)),
                 new XAttribute("pluginVersion", assembly.PluginVersion.ToString())
                 )));
