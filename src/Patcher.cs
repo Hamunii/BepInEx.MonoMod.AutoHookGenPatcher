@@ -132,9 +132,9 @@ internal static class Patcher {
     {
         List<string> paths = new();
         Directory.GetFiles(Paths.ManagedPath, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
-        Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
         Directory.GetFiles(Paths.BepInExAssemblyDirectory, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
         Directory.GetFiles(Paths.PatcherPluginPath, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
+        Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
 
         var assemblyPaths = paths.Where(name => !Path.GetFileName(name).StartsWith("MMHOOK_"));
 
@@ -168,17 +168,17 @@ internal static class Patcher {
             // ExtendedLogging($"[{nameof(IsPluginInfoUpToDate)}] Assembly is up-to-date: " + Path.GetFileName(cachedAssemblyInfo.Path));
             if(!cachedAssemblyInfo.AlreadyHasMMHOOK)
                 return true;
-            
+            // TODO: This is horribly unoptimized, we already get MMHOOK file's path in GetPlugins. Fix this.
             var thisMMHOOKPath = mmHookFiles.FirstOrDefault(filePath => Path.GetFileNameWithoutExtension(filePath).EndsWith(cachedAssemblyInfo.GUID));
             if (thisMMHOOKPath is null){
-                Logger.LogError($"[{nameof(IsPluginInfoUpToDate)}] Plugin's MMHOOK was found yet it couldn't be found, this shouldn't be possible.");
+                Logger.LogError($"[{nameof(IsPluginInfoUpToDate)}] Plugin {cachedAssemblyInfo.GUID}'s MMHOOK was found yet it couldn't be found, this shouldn't be possible.");
                 cachedAssemblyInfo.AlreadyHasMMHOOK = false;
                 return false;
             }
 
             var currentMMHOOKDate = File.GetLastWriteTime(thisMMHOOKPath).Ticks;
             if(cachedAssemblyInfo.MMHOOKDate != currentMMHOOKDate){
-                ExtendedLogging($"[{nameof(IsPluginInfoUpToDate)}] Plugin's info is up-to-date, yet MMHOOK is outdated. This should only happen if source assembly updated and game was launched, but AutoHookGenPatcher failed to update the MMHOOK assembly.");
+                ExtendedLogging($"[{nameof(IsPluginInfoUpToDate)}] Plugin {cachedAssemblyInfo.GUID} is up-to-date, but MMHOOK is outdated.");
                 cachedAssemblyInfo.AlreadyHasMMHOOK = false;
             }
             return true;
@@ -235,32 +235,34 @@ internal static class Patcher {
             var fileName = Path.GetFileName(cachedAssemblyInfo.Path);
             plugin_GUID = Path.GetFileNameWithoutExtension(fileName);
 
-            GUIDtoVer.Add(plugin_GUID, plugin_Ver);
+            // GUIDtoVer.Add(plugin_GUID, plugin_Ver);
+            MarkIfDuplicate(cachedAssemblyInfo, plugin_GUID, plugin_Ver);
         }
         cachedAssemblyInfo.PluginVersion = plugin_Ver;
         return plugin_GUID;
     }
 
     private static bool MarkIfDuplicate(CachedAssemblyInfo cachedAssemblyInfo, string plugin_GUID, Version plugin_Ver){
-        if (GUIDtoVer.ContainsKey(plugin_GUID))
-        {
-            // User has two of the same mod installed, likely different versions
-            // We want to HookGen the newer version which BepInEx loads
-            if (GUIDtoVer[plugin_GUID].CompareTo(plugin_Ver) < 0)
-            {
-                ExtendedLogging($"[{nameof(MarkIfDuplicate)}] Found Newer Version of {plugin_GUID} {GUIDtoVer[plugin_GUID]} => {plugin_Ver} (this)");
-                GUIDtoVer.Remove(plugin_GUID);
-                currentPlugins.Find(plugin => plugin.GUID.Equals(plugin_GUID) && plugin != cachedAssemblyInfo).IsDuplicate = true;
-                GUIDtoVer.Add(plugin_GUID, plugin_Ver);
-                return false;
-            }
-
-            ExtendedLogging($"[{nameof(MarkIfDuplicate)}] Another Plugin {plugin_GUID} With Same Version or Newer {plugin_Ver} => {GUIDtoVer[plugin_GUID]} Found");
-            cachedAssemblyInfo.IsDuplicate = true;
-            return true;
+        if (!GUIDtoVer.ContainsKey(plugin_GUID)){
+            GUIDtoVer.Add(plugin_GUID, plugin_Ver);
+            return false;
         }
-        GUIDtoVer.Add(plugin_GUID, plugin_Ver);
-        return false;
+        
+        // User has two of the same mod installed, likely different versions
+        // We want to HookGen the newer version which BepInEx loads
+        // TODO: Assemblies with same GUIDs in different directories is fine. This needs to handle that.
+        if (GUIDtoVer[plugin_GUID].CompareTo(plugin_Ver) < 0)
+        {
+            ExtendedLogging($"[{nameof(MarkIfDuplicate)}] Found Newer Version of {plugin_GUID} {GUIDtoVer[plugin_GUID]} => {plugin_Ver} (this)");
+            GUIDtoVer.Remove(plugin_GUID);
+            currentPlugins.Find(plugin => plugin.GUID.Equals(plugin_GUID) && plugin != cachedAssemblyInfo).IsDuplicate = true;
+            GUIDtoVer.Add(plugin_GUID, plugin_Ver);
+            return false;
+        }
+
+        ExtendedLogging($"[{nameof(MarkIfDuplicate)}] Another Plugin {plugin_GUID} With Same Version or Newer {plugin_Ver} => {GUIDtoVer[plugin_GUID]} Found");
+        cachedAssemblyInfo.IsDuplicate = true;
+        return true;
     }
 
     private static List<CachedAssemblyInfo>? TryLoadCache()
@@ -308,7 +310,7 @@ internal static class Patcher {
         try{
             ExtendedLogging($"[{nameof(WriteCache)}] Updating cache.");
             
-            XElement xmlElements = new XElement("cache", new XAttribute("Ver", 1), cachedAssemblyInfos.Select(
+            XElement xmlElements = new XElement("cache", new XAttribute("Ver", cacheVersionID), cachedAssemblyInfos.Select(
                 assembly => new XElement("assembly",
                 new XAttribute("guid", assembly.GUID),
                 new XAttribute("path", assembly.Path),
