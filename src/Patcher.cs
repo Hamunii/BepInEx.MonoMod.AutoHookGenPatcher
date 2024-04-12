@@ -26,7 +26,7 @@ internal static class Patcher {
     internal static Dictionary<string, Version> GUIDtoVer = new();
     internal static string? cacheLocation;
     internal static bool isCacheUpdateNeeded = false;
-    internal const int cacheVersionID = 1;
+    internal const int cacheVersionID = 2;
     public static void Initialize()
     {
         if(BoundConfig.ExtendedLogging.Value)
@@ -85,6 +85,12 @@ internal static class Patcher {
             var plugin = currentPlugins[i];
             if(plugin.IsDuplicate){
                 ExtendedLogging($"[{nameof(Begin)}] Skipping HookGen Check For Duplicate or Old Version of {plugin.GUID} ({plugin.PluginVersion})");
+                totalValidPluginsCount--;
+                continue;
+            }
+
+            if(plugin.BadImageFormat){
+                ExtendedLogging($"[{nameof(Begin)}] Skipping HookGen Check For {plugin.GUID} Because {nameof(BadImageFormatException)}");
                 totalValidPluginsCount--;
                 continue;
             }
@@ -154,7 +160,7 @@ internal static class Patcher {
             {
                 var hasMMHOOKinReality = mmhookFileNames.Contains($"MMHOOK_{cachedAssembly.GUID}.dll");
                 // ExtendedLogging($"[{nameof(GetPlugins)}] Found Known Assembly: " + Path.GetFileName(assemblyPath));
-                yield return new CachedAssemblyInfo(cachedAssembly.GUID, assemblyPath, cachedAssembly.DateModified, cachedAssembly.MMHOOKDate, cachedAssembly.References, cachedAssembly.PluginVersion.ToString(), hasMMHOOKinReality);
+                yield return new CachedAssemblyInfo(cachedAssembly.GUID, assemblyPath, cachedAssembly.DateModified, cachedAssembly.MMHOOKDate, cachedAssembly.References, cachedAssembly.PluginVersion.ToString(), cachedAssembly.BadImageFormat, hasMMHOOKinReality);
             }
         }
     }
@@ -192,37 +198,56 @@ internal static class Patcher {
 
     private static void ReadPluginInfoAndMMHOOKReferences(CachedAssemblyInfo cachedAssemblyInfo)
     {
-        using var pluginAssembly = AssemblyDefinition.ReadAssembly(cachedAssemblyInfo.Path);
-
-        cachedAssemblyInfo.GUID = GetPluginGUID(cachedAssemblyInfo, pluginAssembly);
-        if (cachedAssemblyInfo.IsDuplicate)
+        try
         {
-            ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Skipping Reading This Version of {cachedAssemblyInfo.GUID}");
-            return;
+            using var pluginAssembly = AssemblyDefinition.ReadAssembly(cachedAssemblyInfo.Path);
+
+            cachedAssemblyInfo.GUID = GetPluginGUID(cachedAssemblyInfo, pluginAssembly);
+            if (cachedAssemblyInfo.IsDuplicate)
+            {
+                ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Skipping Reading This Version of {cachedAssemblyInfo.GUID}");
+                return;
+            }
+            ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Starting Reading: " + cachedAssemblyInfo.GUID);
+
+            var mmhookReferences = pluginAssembly.MainModule.AssemblyReferences.Where(x => x.Name.StartsWith("MMHOOK_"));
+            cachedAssemblyInfo.References.Clear();
+
+            foreach (var referencedPlugin in mmhookReferences)
+            {
+                ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Found Reference to {referencedPlugin.Name} in {cachedAssemblyInfo.GUID}.");
+                // Trim out 'MMHOOK_' to get the GUID (the rest of the name, excluding '.dll')
+                var referencedPlugin_GUID = referencedPlugin.Name.Substring(7, referencedPlugin.Name.Length - 7);
+                cachedAssemblyInfo.References.Add(referencedPlugin_GUID);
+            }
         }
-        ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Starting Reading: " + cachedAssemblyInfo.GUID);
-
-        var mmhookReferences = pluginAssembly.MainModule.AssemblyReferences.Where(x => x.Name.StartsWith("MMHOOK_"));
-        cachedAssemblyInfo.References.Clear();
-
-        foreach (var referencedPlugin in mmhookReferences)
+        catch (BadImageFormatException)
         {
-            ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] Found Reference to {referencedPlugin.Name} in {cachedAssemblyInfo.GUID}.");
-            // Trim out 'MMHOOK_' to get the GUID (the rest of the name, excluding '.dll')
-            var referencedPlugin_GUID = referencedPlugin.Name.Substring(7, referencedPlugin.Name.Length - 7);
-            cachedAssemblyInfo.References.Add(referencedPlugin_GUID);
+            ExtendedLogging($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] {nameof(BadImageFormatException)}: {cachedAssemblyInfo.Path}");
+            cachedAssemblyInfo.GUID = GetPluginGUID(cachedAssemblyInfo);
+            cachedAssemblyInfo.BadImageFormat = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"[{nameof(ReadPluginInfoAndMMHOOKReferences)}] An error occurred while trying to read {cachedAssemblyInfo.Path}\n{ex}");
+            cachedAssemblyInfo.GUID = GetPluginGUID(cachedAssemblyInfo);
         }
     }
 
-    private static string GetPluginGUID(CachedAssemblyInfo cachedAssemblyInfo, AssemblyDefinition pluginAssembly)
+    private static string GetPluginGUID(CachedAssemblyInfo cachedAssemblyInfo, AssemblyDefinition? pluginAssembly = null)
     {
-        var pluginAttributes = pluginAssembly.MainModule.GetCustomAttributes();
-        var bepInPluginAttribute = pluginAttributes.FirstOrDefault(x => x.AttributeType.Name.Equals("BepInPlugin"));
+        CustomAttribute? bepInPluginAttribute = null;
+
+        if (pluginAssembly is not null)
+        {
+            var pluginAttributes = pluginAssembly.MainModule.GetCustomAttributes();
+            bepInPluginAttribute = pluginAttributes.FirstOrDefault(x => x.AttributeType.Name.Equals("BepInPlugin"));
+        }
 
         string? plugin_GUID = null;
         Version? plugin_Ver = new Version(0, 0, 0);
 
-        if(bepInPluginAttribute != null){
+        if(bepInPluginAttribute is not null){
             var bepInPluginAttributeArgs = bepInPluginAttribute.ConstructorArguments;
             plugin_GUID = bepInPluginAttributeArgs[0].Value.ToString();
             // BepInPlugin must have version, and it uses the same Version class we do here
@@ -230,7 +255,7 @@ internal static class Patcher {
             MarkIfDuplicate(cachedAssemblyInfo, plugin_GUID, plugin_Ver);
         }
 
-        if(bepInPluginAttribute == null || plugin_GUID == null || plugin_GUID == "") {
+        if(bepInPluginAttribute is null || plugin_GUID is null || plugin_GUID == "") {
             // We use the filename as the GUID, because it doesn't have one.
             var fileName = Path.GetFileName(cachedAssemblyInfo.Path);
             plugin_GUID = Path.GetFileNameWithoutExtension(fileName);
@@ -291,15 +316,16 @@ internal static class Patcher {
                     long.Parse(el.Attribute("dateModified").Value),
                     long.Parse(el.Attribute("MMHOOKDate").Value),
                     el.Attribute("references").Value.Split(new char[] {'/'}, StringSplitOptions.RemoveEmptyEntries).ToList(),
-                    el.Attribute("pluginVersion").Value
+                    el.Attribute("pluginVersion").Value,
+                    bool.Parse(el.Attribute("badImageFormat").Value)
                     ));
             }
             ExtendedLogging($"[{nameof(TryLoadCache)}] Loaded Cache, which contains {fromCache.Count} entries.");
 
             return fromCache;
         }
-        catch(Exception e){
-            Logger.LogError($"Failed to load cache! Rebuilding it.\n{e}");
+        catch(Exception ex){
+            Logger.LogError($"Failed to load cache! Rebuilding it.\n{ex}");
             return null;
             // forceCacheRebuild = true;
         }
@@ -317,14 +343,15 @@ internal static class Patcher {
                 new XAttribute("dateModified", assembly.DateModified),
                 new XAttribute("MMHOOKDate", assembly.MMHOOKDate),
                 new XAttribute("references", string.Join( '/', assembly.References)),
-                new XAttribute("pluginVersion", assembly.PluginVersion.ToString())
+                new XAttribute("pluginVersion", assembly.PluginVersion.ToString()),
+                new XAttribute("badImageFormat", assembly.BadImageFormat)
                 )));
             // Logger.LogInfo("\n" + xmlElements);
             // Create the file.
             File.WriteAllText(cacheLocation, xmlElements.ToString());
         }
-        catch(Exception e) {
-            Logger.LogError($"[{nameof(WriteCache)}] Error while writing cache file, clearing it.\n" + e);
+        catch(Exception ex) {
+            Logger.LogError($"[{nameof(WriteCache)}] Error while writing cache file, clearing it.\n" + ex);
             File.Delete(cacheLocation);
         }
     }
