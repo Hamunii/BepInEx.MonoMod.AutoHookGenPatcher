@@ -16,7 +16,7 @@
     <Deterministic>true</Deterministic>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

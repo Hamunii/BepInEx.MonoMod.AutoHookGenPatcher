@@ -5,7 +5,7 @@ schemaVersion = "0.0.1"
 repository = "https://thunderstore.io"
 
 [package]
-description = "Automatically Generates MonoMod.RuntimeDetour.HookGen's MMHOOK files during the BepInEx preloader phase."
+description = "Automatically generates MonoMod.RuntimeDetour.HookGen's MMHOOK files during the BepInEx preloader phase."
 websiteUrl = "https://github.com/Hamunii/BepInEx.MonoMod.AutoHookGenPatcher"
 containsNsfwContent = false
 [package.dependencies]

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2024-5-2
+
+### Fixed
+- Thunderstore description no longer has the second word also start with a capital letter
+
+### Other
+- Uploaded to Thunderstore's Lethal Company Mod Database
+
 ## [1.0.3] - 2024-4-12
 
 ### Fixed
