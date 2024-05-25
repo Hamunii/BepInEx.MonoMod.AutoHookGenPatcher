@@ -22,6 +22,10 @@ source = "./CHANGELOG.md"
 target = "/"
 
 [[build.copy]]
+source = "../LICENSE"
+target = "/"
+
+[[build.copy]]
 source = "../bin/Release/netstandard2.1/BepInEx.MonoMod.AutoHookGenPatcher.dll"
 target = "/BepInEx/patchers/"
 
