@@ -40,6 +40,6 @@ When you publish your mod, make sure to add AutoHookGenPatcher as a dependency i
 
 ### Q&A
 #### How does AutoHookGenPatcher figure out which MMHOOK files my mod references?
-- During the BepInEx Preloader phase, AutoHookGenPatcher will open and read the metadata of every DLL file\* for referenced assemblies and looks for references that start with `MMHOOK_`. It will then check if any installed assemblies match the rest of the name, and will run MonoMod's HookGen on those assemblies if they exist.
+- During the BepInEx Preloader phase, AutoHookGenPatcher will open\* and read the metadata of every DLL file for referenced assemblies and looks for references that start with `MMHOOK_`. It will then check if any installed assemblies match the rest of the name, and will run MonoMod's HookGen on those assemblies if they exist.
 
-\*This is only done if the *date modified* metadata of the assembly on disk is newer than previous known date in AutoHookGenPatcher's cache file, if a cache entry exists for the assembly. Referenced `MMHOOK` assemblies are also saved in the cache.
+\*This is only done if the *date modified* metadata of the assembly on disk is newer than previous known date in AutoHookGenPatcher's cache file. Referenced `MMHOOK` assemblies are also saved in the cache.
