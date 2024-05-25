@@ -342,7 +342,7 @@ internal static class Patcher {
                 new XAttribute("path", assembly.Path),
                 new XAttribute("dateModified", assembly.DateModified),
                 new XAttribute("MMHOOKDate", assembly.MMHOOKDate),
-                new XAttribute("references", string.Join( '/', assembly.References)),
+                new XAttribute("references", string.Join("/", assembly.References)), // Note: '/' here is valid on .NET Standard 2.1 but not 2.0, so we should use "/"
                 new XAttribute("pluginVersion", assembly.PluginVersion.ToString()),
                 new XAttribute("badImageFormat", assembly.BadImageFormat)
                 )));
