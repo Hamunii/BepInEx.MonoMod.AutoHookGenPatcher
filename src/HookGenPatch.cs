@@ -17,13 +17,15 @@ public static class HookGenPatch {
         
         string mmhookFolder = Patcher.mmhookPath;
 
-        if(plugin.Path.Contains(Paths.ManagedPath))
+        if (plugin.Path.Contains(Paths.ManagedPath))
             mmhookFolder = Path.Combine(Patcher.mmhookPath, "Managed");
-        else if(plugin.Path.Contains(Paths.PluginPath))
+        else if (plugin.Path.Contains(PathsExtra.Interop_il2cpp))
+            mmhookFolder = Path.Combine(Patcher.mmhookPath, "interop");
+        else if (plugin.Path.Contains(Paths.PluginPath))
             mmhookFolder = Path.Combine(Patcher.mmhookPath, "plugins");
-        else if(plugin.Path.Contains(Paths.BepInExAssemblyDirectory))
+        else if (plugin.Path.Contains(Paths.BepInExAssemblyDirectory))
             mmhookFolder = Path.Combine(Patcher.mmhookPath, "core");
-        else if(plugin.Path.Contains(Paths.PatcherPluginPath))
+        else if (plugin.Path.Contains(Paths.PatcherPluginPath))
             mmhookFolder = Path.Combine(Patcher.mmhookPath, "patchers");
 
         var fileExtension = ".dll";

@@ -14,11 +14,17 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Bep5_Mono|Any CPU = Bep5_Mono|Any CPU
+		Bep6_IL2CPP|Any CPU = Bep6_IL2CPP|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{12032E45-9577-4195-8F4F-A729911B2F08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{12032E45-9577-4195-8F4F-A729911B2F08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12032E45-9577-4195-8F4F-A729911B2F08}.Bep5_Mono|Any CPU.ActiveCfg = Bep5_Mono|Any CPU
+		{12032E45-9577-4195-8F4F-A729911B2F08}.Bep5_Mono|Any CPU.Build.0 = Bep5_Mono|Any CPU
+		{12032E45-9577-4195-8F4F-A729911B2F08}.Bep6_IL2CPP|Any CPU.ActiveCfg = Bep6_IL2CPP|Any CPU
+		{12032E45-9577-4195-8F4F-A729911B2F08}.Bep6_IL2CPP|Any CPU.Build.0 = Bep6_IL2CPP|Any CPU
 		{12032E45-9577-4195-8F4F-A729911B2F08}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{12032E45-9577-4195-8F4F-A729911B2F08}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection

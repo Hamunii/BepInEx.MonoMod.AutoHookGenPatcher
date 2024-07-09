@@ -13,9 +13,13 @@ using System.Threading.Tasks;
 
 namespace AutoHookGenPatcher;
 
-// [PatcherPluginInfo(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
-// internal class Patcher : BasePatcher {
-internal static class Patcher {
+#if BEP5_MONO
+internal static class Patcher
+#else
+[BepInEx.Preloader.Core.Patching.PatcherPluginInfo(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
+internal class Patcher : BepInEx.Preloader.Core.Patching.BasePatcher
+#endif
+{
     internal static string mmhookPath = null!;
     internal static ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource(PluginInfo.PLUGIN_NAME);
     private static readonly PluginConfig BoundConfig = new PluginConfig(new ConfigFile(Path.Combine(Paths.ConfigPath, PluginInfo.PLUGIN_NAME + ".cfg"), false));
@@ -27,7 +31,11 @@ internal static class Patcher {
     internal static string? cacheLocation;
     internal static bool isCacheUpdateNeeded = false;
     internal const int cacheVersionID = 2;
+    #if BEP5_MONO
     public static void Initialize()
+    #else
+    public override void Initialize()
+    #endif
     {
         if(BoundConfig.ExtendedLogging.Value)
         {
@@ -39,7 +47,11 @@ internal static class Patcher {
         mmhookOverrides.Add("Assembly-CSharp");
 
         mmhookPath = Path.Combine(Paths.PluginPath, "MMHOOK");
+#if BEP5_MONO
         cacheLocation = Path.Combine(Paths.CachePath, "AutoHookGenPatcher_MMHOOK_Cache.xml");
+#else
+        cacheLocation = Path.Combine(mmhookPath, "AutoHookGenPatcher_MMHOOK_Cache.xml"); // cache path doesn't exist on BepInEx 6
+#endif
 
         mmHookFiles = Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories).Where(name => Path.GetFileName(name).StartsWith("MMHOOK_")).ToList();
 
@@ -138,6 +150,8 @@ internal static class Patcher {
     {
         List<string> paths = new();
         Directory.GetFiles(Paths.ManagedPath, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
+        if (Directory.Exists(PathsExtra.Interop_il2cpp))
+            Directory.GetFiles(PathsExtra.Interop_il2cpp, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
         Directory.GetFiles(Paths.BepInExAssemblyDirectory, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
         Directory.GetFiles(Paths.PatcherPluginPath, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
         Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories).ToList().ForEach(paths.Add);
