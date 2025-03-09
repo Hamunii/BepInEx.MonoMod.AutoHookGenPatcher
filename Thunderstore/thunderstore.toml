@@ -26,7 +26,7 @@ source = "../LICENSE"
 target = "/"
 
 [[build.copy]]
-source = "../bin/Release/netstandard2.1/BepInEx.MonoMod.AutoHookGenPatcher.dll"
+source = "../bin/Release/netstandard2.0/BepInEx.MonoMod.AutoHookGenPatcher.dll"
 target = "/BepInEx/patchers/"
 
 [[build.copy]]
