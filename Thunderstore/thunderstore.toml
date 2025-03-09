@@ -38,7 +38,12 @@ source = "./libs/MonoMod.RuntimeDetour.HookGen.dll"
 target = "/BepInEx/core/"
 
 [publish]
-communities = [ "lethal-company", ]
-[publish.categories]
-# Get the list of categories from https://thunderstore.io/api/experimental/community/lethal-company/category/
-lethal-company = [ "bepinex", "libraries", ]
+categories = ["tools"]
+# Get the list of communities from https://thunderstore.io/api/experimental/community/
+communities = [
+    "lethal-company",
+    "content-warning",
+    "plasma",
+    "gloomwood",
+    "repo",
+]
