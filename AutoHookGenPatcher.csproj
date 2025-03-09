@@ -59,7 +59,11 @@
 
   <!-- Build our Thunderstore package when making a release build. This does not publish our package. -->
   <!-- For more information about tcli, see https://github.com/thunderstore-io/thunderstore-cli/wiki -->
-  <Target Name="PackThunderstore" AfterTargets="PostBuildEvent" Condition="$(Configuration) == 'Release'">
+  <Target Name="PackThunderstore" AfterTargets="PostBuildEvent" Condition="$(Configuration) == 'Release' And $(TCLI_AUTH_TOKEN) == ''">
     <Exec Command="dotnet tcli build --config-path &quot;$(ProjectDir)Thunderstore/thunderstore.toml&quot; --package-version $(Version) --package-name AutoHookGenPatcher --package-namespace $(ThunderstoreTeam)"  />
+  </Target>
+
+  <Target Name="PublishThunderstore" AfterTargets="PostBuildEvent" Condition="$(TCLI_AUTH_TOKEN) != ''">
+    <Exec Command="dotnet tcli publish --config-path &quot;$(ProjectDir)Thunderstore/thunderstore.toml&quot; --package-version $(Version) --package-name AutoHookGenPatcher --package-namespace $(ThunderstoreTeam)" />
   </Target>
 </Project>
