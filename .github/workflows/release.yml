@@ -5,72 +5,26 @@ on:
     types: [released, prereleased]
 
 jobs:
-  build:
-    name: build
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch Sources
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          filter: tree:0
 
-      - name: Setup .NET Env
+      - name: Setup Dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.203"
+          dotnet-version: "8.x"
 
-      - name: Restore Solution
+      - name: Restore, Build and Publish to TS
+        env:
+          TCLI_AUTH_TOKEN: ${{ secrets.THUNDERSTORE_API_TOKEN }}
         run: |
-          dotnet restore
+          dotnet restore --locked-mode
           dotnet tool restore
-
-      - name: Pack Solution
-        run: |
-          dotnet build --configuration Release
-
-      - name: Upload Thunderstore Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: thunderstore-build
-          path: ./Thunderstore/Packages/*.zip
-
-  upload-release-artifacts:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Thunderstore Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: thunderstore-build
-          path: ./Thunderstore/Packages/
+          dotnet pack -c Release
 
       - name: Upload artifacts to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload ${{ github.event.release.tag_name }} ./Thunderstore/Packages/*.zip
-
-#   deploy-thunderstore:
-#     if: ${{ github.event.release.prerelease == false }}
-#     needs: build
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v4
-
-#       - name: Download Thunderstore Artifact
-#         uses: actions/download-artifact@v4
-#         with:
-#           name: thunderstore-build
-#           path: ./ModMenuAPI/Thunderstore/Packages/
-
-#       - name: Restore Tools
-#         run: |
-#           dotnet tool restore
-
-#       - name: Publishing to Thunderstore
-#         env:
-#           TCLI_AUTH_TOKEN: ${{ secrets.THUNDERSTORE_API_TOKEN }}
-#         run: |
-#           dotnet tcli publish --config-path ./ModMenuAPI/Thunderstore/thunderstore.toml --file ./ModMenuAPI/Thunderstore/Packages/*.zip
