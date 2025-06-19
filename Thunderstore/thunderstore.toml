@@ -10,7 +10,7 @@ websiteUrl = "https://github.com/Hamunii/BepInEx.MonoMod.AutoHookGenPatcher"
 containsNsfwContent = false
 [package.dependencies]
 BepInEx-BepInExPack = "5.4.2100"
-Hamunii-DetourContext_Dispose_Fix = "1.0.3"
+Hamunii-DetourContext_Dispose_Fix = "1.0.5"
 
 [build]
 icon = "./icon.png"
